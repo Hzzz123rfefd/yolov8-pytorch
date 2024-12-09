@@ -1,13 +1,7 @@
-import math
 import torch.nn as nn
 import torch
-from tqdm import tqdm
-import os
-from torch import optim
-import torch
-from transformers import AutoModel,AutoTokenizer
-from torch.utils.data import DataLoader
 
+from src.modules import *
 from src.utils import *
 
 
@@ -15,15 +9,52 @@ from src.utils import *
 class ObjectDetect(nn.Module):
     def __init__(
             self,
+            d: float = 0.33,
+            w: float = 0.25,
+            r: float = 2,
+            base_channels: int = 64,
             reg_max: int = 16,
             class_num: int = 80,
+            top_k: int = 10,
+            alpha: float = 0.5,
+            beta: float = 6,
+            cls_weight: float = 0.5,
+            clou_weight: float = 7.5,
+            dfl_weight:float = 1.5,
             use_dfl: float = True,
+            
             device: str = "cpu",
     ):
+        super().__init__()
         self.rea_max = reg_max
         self.class_num = class_num
+        self.clou_weight = clou_weight
+        self.dfl_weight = dfl_weight
+        self.cls_weight = cls_weight
         self.use_dfl = use_dfl
         self.device = device if torch.cuda.is_available() else "cpu"
+    
+        self.backbone  = Backbone(base_channels, w, d, r, d_rate = 3)
+        self.neck = Neck(base_channels, w, d, r, d_rate = 3)
+        self.head = Head(class_num, base_channels, w, d, r,reg_max = 16)
+        
+        """ loss """
+        self.assigner = TaskAlignedAssigner(
+            topk = top_k, 
+            num_classes = class_num, 
+            alpha = alpha, 
+            beta = beta
+        )
+    
+    def forward(self,input):
+        x = input["image"]
+        P3, P4, P5 = self.backbone(x)
+        T1, T2, T3 = self.neck(P3, P4, P5)
+        dbox, cls, x = self.head(T1, T2, T3)
+        output = {
+            "predict":x
+        }
+        return output
         
     def compute_loss(self, input):
         # process data
@@ -65,6 +96,27 @@ class ObjectDetect(nn.Module):
             gt_bboxes,
             mask_gt,
         )
+        
+        target_scores_sum = max(target_scores.sum(), 1)
+
+        # Cls loss
+        # loss[1] = self.varifocal_loss(pred_scores, target_scores, target_labels) / target_scores_sum  # VFL way
+        loss[1] = self.bce(pred_scores, target_scores.to(dtype)).sum() / target_scores_sum  # BCE
+
+        # Bbox loss
+        if fg_mask.sum():
+            target_bboxes /= stride_tensor
+            loss[0], loss[2] = self.bbox_loss(
+                pred_distri, pred_bboxes, anchor_points, target_bboxes, target_scores, target_scores_sum, fg_mask
+            )
+
+        loss[0] *= self.clou_weight  # box gain
+        loss[1] *= self.cls_weight  # cls gain
+        loss[2] *= self.dfl_weight  # dfl gain
+        output = {
+            "total_loss": loss.sum() * batch_size
+        }
+        return output
         
     def bbox_decode(self, anchor_points, pred_dist):
         """Decode predicted object bounding box coordinates from anchor points and distribution."""
