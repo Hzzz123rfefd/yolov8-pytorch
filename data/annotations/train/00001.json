@@ -1,0 +1,19 @@
+{
+    "image_path": "/path",
+    "image_size": [
+        454,
+        640
+    ],
+    "objects": [
+        {
+            "id": 1,
+            "category_id": 18,
+            "bbox": [
+                100.0,
+                150.0,
+                50.0,
+                80.0
+            ]
+        }
+    ]
+}

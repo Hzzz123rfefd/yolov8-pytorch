@@ -1,0 +1,19 @@
+{
+    "categories": [
+        {
+            "id": 1,
+            "name": "person",
+            "supercategory": "person"
+        },
+        {
+            "id": 7,
+            "name": "car",
+            "supercategory": "vehicle"
+        },
+        {
+            "id": 18,
+            "name": "dog",
+            "supercategory": "animal"
+        }
+    ]
+}

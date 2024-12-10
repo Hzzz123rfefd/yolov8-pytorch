@@ -1,0 +1,47 @@
+# config.yml
+
+model_type:
+  yolov8
+# mdoel args
+model:        
+  model_size: n
+  base_channels: 64
+  reg_max: 16
+  class_num: 80
+  top_k: 10
+  alpha: 0.5
+  beta: 6
+  cls_weight: 0.5
+  clou_weight: 7.5
+  dfl_weight: 1.5
+  use_dfl: True
+  device: cpu
+
+# trainning args
+traininng:
+  batch_size: 2               
+  epochs: 1000          
+  learning_rate: 0.0001   
+  optimizer: Adam              
+  weight_decay: 0.0001
+  clip_max_norm: 0.5
+  factor: 0.3
+  patience: 15         
+  device: cuda
+
+dataset_type:
+  object_detect
+dataset:
+  target_width: 640
+  target_height: 640
+  train_image_folder: data/images/train
+  test_image_folder: data/images/train
+  valid_image_folder: data/images/train
+  train_annotation_folder: data/annotations/train
+  test_annotation_folder: data/annotations/train
+  valid_annotation_folder: data/annotations/train
+
+
+logging:
+  log_interval: 100             
+  save_dir: "./saved_model/yolov8"   
