@@ -1,2 +1,6 @@
 __pycache__
 saved_model
+coco2014_train
+annotations
+train2014
+.DS_Store
