@@ -104,7 +104,7 @@ class DatasetForObjectDetect(DatasetForImageReader):
         for object in annotation_json["objects"]:
             annotation = np.zeros(5)
             bbox = object["bbox"]
-            category = object["category_id"]
+            category = 79 if object["category_id"] > 79 else object["category_id"]
             xmin = (bbox[0] * scale_x) 
             ymin = (bbox[1] * scale_y) 
             xmax = ((bbox[0] + bbox[2]) * scale_x) 
@@ -112,6 +112,8 @@ class DatasetForObjectDetect(DatasetForImageReader):
             annotation[0:4] = [xmin, ymin, xmax, ymax]
             annotation[4] = category
             objects.append(annotation)
+        if len(objects) == 0:
+            objects = [np.zeros(5)]
         objects = np.vstack(objects)
         return objects
     

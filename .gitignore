@@ -3,4 +3,5 @@ saved_model
 coco2014_train
 annotations
 train2014
+val2014
 .DS_Store

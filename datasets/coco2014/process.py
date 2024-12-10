@@ -137,7 +137,8 @@ def main(args):
         annotation_file = val_annotation_file, 
         images_dir = args.dataset_dir + "val2014", 
         output_annotations_dir = args.output_dir + "annotations/test/",
-        output_images_dir = args.output_dir + "images/test/"
+        output_images_dir = args.output_dir + "images/test/",
+        max_image_num = 256
     )
 
 if __name__ == "__main__":

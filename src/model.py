@@ -23,7 +23,7 @@ class ObjectDetect(nn.Module):
             clou_weight: float = 7.5,
             dfl_weight:float = 1.5,
             use_dfl: float = True,
-            device: str = "cpu",
+            device: str = "cuda",
     ):
         super().__init__()
         self.model_size = model_size
@@ -46,9 +46,9 @@ class ObjectDetect(nn.Module):
             self.w = 0.5
             self.r = 2
             
-        self.backbone  = Backbone(base_channels, self.w, self.d, self.r, d_rate = 3)
-        self.neck = Neck(base_channels,  self.w, self.d, self.r, d_rate = 3)
-        self.head = Head(class_num, base_channels, self.w, self.d, self.r,reg_max = 16)
+        self.backbone  = Backbone(base_channels, self.w, self.d, self.r, d_rate = 3).to(self.device)
+        self.neck = Neck(base_channels,  self.w, self.d, self.r, d_rate = 3).to(self.device)
+        self.head = Head(class_num, base_channels, self.w, self.d, self.r,reg_max = 16).to(self.device)
         
         """ loss """
         self.assigner = TaskAlignedAssigner(
