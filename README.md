@@ -7,7 +7,7 @@ Install the packages required for development.
 conda create -n yolov8 python=3.10
 conda activate yolov8
 git clone https://github.com/Hzzz123rfefd/yolov8-pytorch.git
-cd pytorch
+cd yolov8-pytorch
 pip install -r requirements.txt
 ```
 
