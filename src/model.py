@@ -11,19 +11,21 @@ from src.utils import *
 
 class ObjectDetect(nn.Module):
     def __init__(
-            self,
-            model_size = "n",
-            base_channels: int = 64,
-            reg_max: int = 16,
-            class_num: int = 80,
-            top_k: int = 10,
-            alpha: float = 0.5,
-            beta: float = 6,
-            cls_weight: float = 0.5,
-            clou_weight: float = 7.5,
-            dfl_weight:float = 1.5,
-            use_dfl: float = True,
-            device: str = "cuda",
+        self,
+        model_size = "n",
+        base_channels: int = 64,
+        reg_max: int = 16,
+        class_num: int = 80,
+        top_k: int = 10,
+        alpha: float = 0.5,
+        beta: float = 6,
+        cls_weight: float = 0.5,
+        clou_weight: float = 7.5,
+        dfl_weight:float = 1.5,
+        use_dfl: float = True,
+        target_width = 640,
+        target_height = 640,
+        device: str = "cuda",
     ):
         super().__init__()
         self.model_size = model_size
@@ -35,8 +37,10 @@ class ObjectDetect(nn.Module):
         self.cls_weight = cls_weight
         self.use_dfl = use_dfl
         self.stride = [8, 16, 32]
-        self.proj = torch.arange(self.reg_max, dtype = torch.float, device = device)
+        self.target_width = target_width
+        self.target_height = target_height
         self.device = device if torch.cuda.is_available() else "cpu"
+        self.proj = torch.arange(self.reg_max, dtype = torch.float, device = self.device)
         if model_size == "n":
             self.d = 0.33
             self.w = 0.25
@@ -59,17 +63,20 @@ class ObjectDetect(nn.Module):
         )
         self.bbox_loss = BboxLoss(self.reg_max).to(self.device)
     
-    def forward(self,input):
+    def forward(self, input, is_train = True):
+        output = {}
         x = input["image"].to(self.device)
         P3, P4, P5 = self.backbone(x)
         T1, T2, T3 = self.neck(P3, P4, P5)
         dbox, cls, x = self.head(T1, T2, T3)
-        output = {
-            "predict":x,
-            "gt_bboxes":input["gt_bboxes"].to(self.device),
-            "gt_labels":input["gt_labels"].to(self.device),
-            "gt_mask":input["gt_mask"].to(self.device)
-        }
+        output["predict"] = x
+        if is_train:
+            output["gt_bboxes"] = input["gt_bboxes"].to(self.device)
+            output["gt_labels"] = input["gt_labels"].to(self.device)
+            output["gt_mask"] = input["gt_mask"].to(self.device)
+        else:
+            output["dbox"] = dbox
+            output["cls"] = F.softmax(cls, dim = 1)
         return output
         
     def compute_loss(self, input):
@@ -106,6 +113,16 @@ class ObjectDetect(nn.Module):
         pred_bboxes = self.bbox_decode(anchor_points, pred_distri) 
         
         # Positive sample matching
+        """
+        fg_mask: [2,8400]     标识哪些框是正样本，哪些框是负样本
+        正样本数量 = 真实目标数量 * topk
+        
+        target_scores: [2,8400,80]   构建正样本类别标签，
+        如果是负样本，这个框不属于任何一个类别，即80个类别中全部为0
+        如果是正样本，这个框属于任何一个类别，但是不能直接标记为1，还需要✖️这个框和真实框的iou比
+        
+        target_bboxes: [2,8400,4]    预测框xxyy，只有fg_mask = True的会参与到损失计算
+        """
         _, target_bboxes, target_scores, fg_mask, _ = self.assigner(
             # pred_scores.detach().sigmoid() * 0.8 + dfl_conf.unsqueeze(-1) * 0.2,
             pred_scores.detach().sigmoid(),
@@ -114,8 +131,7 @@ class ObjectDetect(nn.Module):
             gt_labels,
             gt_bboxes,
             mask_gt,
-        )
-        
+        )   
         target_scores_sum = max(target_scores.sum(), 1)
 
         # Cls loss
@@ -129,7 +145,7 @@ class ObjectDetect(nn.Module):
             loss[0], loss[2] = self.bbox_loss(
                 pred_distri, pred_bboxes, anchor_points, target_bboxes, target_scores, target_scores_sum, fg_mask
             )
-
+        
         loss[0] *= self.clou_weight  # box gain
         loss[1] *= self.cls_weight  # cls gain
         loss[2] *= self.dfl_weight  # dfl gain
@@ -334,6 +350,44 @@ class ObjectDetect(nn.Module):
 
     def save_pretrained(self,  save_model_dir):
         torch.save(self.state_dict(), save_model_dir + "/model.pth")
+        
+    def inference(self, image_path = None, image_data = None, confidence = 0.9):
+        output = {}
+        self.eval()
+        image,original_width,original_height = read_image(
+            image_path = image_path,
+            image_data = image_data,
+            target_height = self.target_height,
+            target_width = self.target_width,
+            normalize = True
+        )
+        image = torch.tensor(image).permute(2, 0, 1).float().unsqueeze(0).to(self.device)
+        with torch.no_grad():
+            output = self.forward(
+                input = {
+                    "image":image
+                },
+                is_train = False
+            )
+        cls = output["cls"]
+        dbox = output["dbox"].permute(0, 2, 1)
+        feats = output["predict"]
+        fg_mask = (cls > confidence).any(dim=1)
+        fg_indices = fg_mask.squeeze(0).nonzero(as_tuple=True)[0]
+        ## get class
+        gt_label = cls[0, :, fg_indices].argmax(dim=0)    # object_num
+        ## get detect box
+        anchor_points, stride_tensor = make_anchors(feats, self.stride, 0.5)
+        lt, rb = dbox.chunk(2, -1)
+        x1y1 = anchor_points - lt
+        x2y2 = anchor_points + rb
+        box = torch.cat((x1y1, x2y2), -1) * stride_tensor
+        gt_box = box[0, fg_indices,:]     # object_num, 4 
+        return gt_box, gt_label
+        
+        
+            
+        
         
         
         

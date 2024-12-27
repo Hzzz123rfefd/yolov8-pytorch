@@ -47,7 +47,10 @@ python train.py --model_config_path config/yolov8.yml
 ```
 
 ### Inference
-TODO
+Once you have trained your model, you can use the following script to detect:
+```bash
+python example/inference.py --image_path {yout image path} --model_config_path config/density.yml --confidence 0.95 --output_path {density map path}
+```
 
 ## Related links
  * yolo: https://github.com/ultralytics/ultralytics

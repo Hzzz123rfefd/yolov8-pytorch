@@ -34,12 +34,12 @@ dataset_type:
 dataset:
   target_width: 640
   target_height: 640
-  train_image_folder: coco2014_train/images/train
-  test_image_folder: coco2014_train/images/train
-  valid_image_folder: coco2014_train/images/train
-  train_annotation_folder: coco2014_train/annotations/train
-  test_annotation_folder: coco2014_train/annotations/train
-  valid_annotation_folder: coco2014_train/annotations/train
+  train_image_folder: data/images/train
+  test_image_folder: data/images/train
+  valid_image_folder: data/images/train
+  train_annotation_folder: data/annotations/train
+  test_annotation_folder: data/annotations/train
+  valid_annotation_folder: data/annotations/train
 
 
 logging:

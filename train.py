@@ -1,6 +1,6 @@
 from torch.utils.data import DataLoader
 from src import models,datasets
-from utils import *
+from src.utils import *
 import argparse
 
 def main(args):
@@ -44,6 +44,6 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_config_path",type=str,default = "cof/yolov8.yml")
+    parser.add_argument("--model_config_path",type=str,default = "config/yolov8.yml")
     args = parser.parse_args()
     main(args)

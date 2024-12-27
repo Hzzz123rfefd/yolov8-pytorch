@@ -1,6 +1,33 @@
 import math
+import cv2
 import torch
 from torch.utils.data.dataloader import default_collate
+import yaml
+
+def load_config(config_path):
+    with open(config_path, 'r') as file:
+        config = yaml.safe_load(file)
+    return config
+
+def read_image(
+    image_path = None, 
+    image_data = None,
+    target_height = None, 
+    target_width = None, 
+    normalize = False,
+):
+    if image_path != None:
+        image = cv2.imread(image_path)
+    else:
+        image = image_data
+    assert image is not None ,"image data is None"
+    original_width = image.shape[1]
+    original_height = image.shape[0]
+    if target_height != None:
+        image = cv2.resize(image, (target_width, target_height))
+    if normalize:
+        image = image / 255.0
+    return image,original_width,original_height
 
 def recursive_collate_fn(batch):
     if isinstance(batch[0], dict):
