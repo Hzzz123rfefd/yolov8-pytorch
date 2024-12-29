@@ -1,0 +1,10 @@
+train: C:/Users/10198/Desktop/project/datasets/food_train/images/train  # train images
+val: C:/Users/10198/Desktop/project/datasets/food_train/images/test  # val images
+# test: C:/Users/10198/Desktop/project/datasets/food_train/images/train  # test images （可选）
+
+# number of classes
+nc: 1
+
+# Classes，填写类别名
+names:
+  0: food 
